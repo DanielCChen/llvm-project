@@ -87,6 +87,10 @@ public:
   void addProfileRTLibs(const llvm::opt::ArgList &Args,
                         llvm::opt::ArgStringList &CmdArgs) const override;
 
+  std::string
+  getCompilerRT(const llvm::opt::ArgList &Args, StringRef Component,
+                FileType Type = ToolChain::FT_Static) const override;
+
   CXXStdlibType GetDefaultCXXStdlibType() const override;
 
   RuntimeLibType GetDefaultRuntimeLibType() const override;

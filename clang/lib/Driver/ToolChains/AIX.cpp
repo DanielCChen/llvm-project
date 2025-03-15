@@ -16,6 +16,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/VirtualFileSystem.h"
 
 #include <set>
 
@@ -606,6 +607,16 @@ void AIX::addProfileRTLibs(const llvm::opt::ArgList &Args,
   }
 
   ToolChain::addProfileRTLibs(Args, CmdArgs);
+}
+
+std::string AIX::getCompilerRT(const ArgList &Args, StringRef Component,
+                               FileType Type) const {
+  // Check the filename for the old layout if the new one does not exist.
+  std::string CRTBasename = buildCompilerRTBasename(Args, Component, Type,
+                                                    /*AddArch=*/true);
+  SmallString<128> Path(getCompilerRTPath());
+  llvm::sys::path::append(Path, CRTBasename);
+  return std::string(Path);
 }
 
 ToolChain::CXXStdlibType AIX::GetDefaultCXXStdlibType() const {
