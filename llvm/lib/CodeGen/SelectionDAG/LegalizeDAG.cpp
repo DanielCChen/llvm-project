@@ -992,15 +992,23 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
 
 #ifndef NDEBUG
   for (unsigned i = 0, e = Node->getNumValues(); i != e; ++i)
-    assert(TLI.getTypeAction(*DAG.getContext(), Node->getValueType(i)) ==
-             TargetLowering::TypeLegal &&
+    assert((TLI.getTypeAction(*DAG.getContext(), Node->getValueType(i)) ==
+              TargetLowering::TypeLegal ||
+            // ISD::POISON nodes may be created with non-legal types during
+            // LegalizeDAG (e.g. when a libcall is unsupported), after type
+            // legalization has already run.  They will be expanded by
+            // ExpandNode below via the Expand action set by the target.
+            Node->getOpcode() == ISD::POISON) &&
            "Unexpected illegal type!");
 
   for (const SDValue &Op : Node->op_values())
     assert((TLI.getTypeAction(*DAG.getContext(), Op.getValueType()) ==
               TargetLowering::TypeLegal ||
             Op.getOpcode() == ISD::TargetConstant ||
-            Op.getOpcode() == ISD::Register) &&
+            Op.getOpcode() == ISD::Register ||
+            // Same rationale as above: POISON operands may carry non-legal
+            // types when generated within LegalizeDAG.
+            Op.getOpcode() == ISD::POISON) &&
             "Unexpected illegal type!");
 #endif
 

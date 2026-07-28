@@ -10546,6 +10546,12 @@ SDValue TargetLowering::expandIS_FPCLASS(EVT ResultVT, SDValue Op,
   unsigned BitSize = OperandVT.getScalarSizeInBits();
   EVT IntVT = OperandVT.changeElementType(
       *DAG.getContext(), EVT::getIntegerVT(*DAG.getContext(), BitSize));
+
+  // If the integer type is not legal (e.g. i64 on a 32-bit target like PPC32),
+  // we cannot create integer operations after type legalization has run.
+  // Return SDValue() so LegalizeDAG can fall back to other strategies.
+  if (!isTypeLegal(IntVT))
+    return SDValue();
   SDValue OpAsInt = DAG.getBitcast(IntVT, Op);
 
   // Various masks.

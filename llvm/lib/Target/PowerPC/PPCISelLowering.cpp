@@ -343,6 +343,11 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
   setOperationAction(ISD::FNEARBYINT, MVT::ppcf128, Expand);
   setOperationAction(ISD::FREM, MVT::ppcf128, LibCall);
 
+  // ppcf128 is a two-f64 double-double type that is not directly legal;
+  // ISD::POISON with this type must be expanded (split into two f64 poisons)
+  // rather than left for LegalizeDAG to encounter, which would assert.
+  setOperationAction(ISD::POISON, MVT::ppcf128, Expand);
+
   // PowerPC has no SREM/UREM instructions unless we are on P9
   // On P9 we may use a hardware instruction to compute the remainder.
   // When the result of both the remainder and the division is required it is
@@ -11990,8 +11995,32 @@ SDValue PPCTargetLowering::LowerIS_FPCLASS(SDValue Op,
   // - If value is NaN, the comparison is unordered (FU bit set)
   // - If value is not NaN, the comparison is equal (EQ bit set)
 
+  // For non-P9Vector targets, use FP comparisons involving fabs(x) and +inf.
+  // This avoids creating i64 integer operations which are illegal on 32-bit PPC.
+  // Note: FCMPU/XSCMPUDP do not raise IEEE exceptions for comparisons with inf.
+  {
+    SDValue Abs = DAG.getNode(ISD::FABS, Dl, VT, LHS);
+    SDValue Inf = DAG.getConstantFP(
+        APFloat::getInf(VT.getFltSemantics()), Dl, VT);
+    FPClassTest NonNanCategory = Category & ~fcNan;
+    bool IncludeNan = (Category & fcNan) != 0;
+
+    // isinf(x): fabs(x) == +inf (ordered or unordered depending on NaN flag)
+    if (NonNanCategory == fcInf) {
+      ISD::CondCode CC = IncludeNan ? ISD::SETUEQ : ISD::SETOEQ;
+      return DAG.getSetCC(Dl, MVT::i1, Abs, Inf, CC);
+    }
+
+    // !isinf(x): fabs(x) != +inf  (i.e. finite or NaN)
+    // Category = ~fcInf = fcNan | fcFinite   => mask = fcAllFlags & ~fcInf
+    if (NonNanCategory == fcFinite) {
+      ISD::CondCode CC = IncludeNan ? ISD::SETUNE : ISD::SETONE;
+      return DAG.getSetCC(Dl, MVT::i1, Abs, Inf, CC);
+    }
+  }
+
   if ((Category & ~fcNan) && (Category != ~fcNan)) {
-    // If not checking for NaN or non-NaN, we can't handle this without P9Vector
+    // Cannot handle this class test without P9Vector data class instructions.
     return SDValue();
   }
 
