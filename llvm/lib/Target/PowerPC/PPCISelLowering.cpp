@@ -343,6 +343,11 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
   setOperationAction(ISD::FNEARBYINT, MVT::ppcf128, Expand);
   setOperationAction(ISD::FREM, MVT::ppcf128, LibCall);
 
+  // ppcf128 is a two-f64 double-double type that is not directly legal;
+  // ISD::POISON with this type must be expanded (split into two f64 poisons)
+  // rather than left for LegalizeDAG to encounter, which would assert.
+  setOperationAction(ISD::POISON, MVT::ppcf128, Expand);
+
   // PowerPC has no SREM/UREM instructions unless we are on P9
   // On P9 we may use a hardware instruction to compute the remainder.
   // When the result of both the remainder and the division is required it is
