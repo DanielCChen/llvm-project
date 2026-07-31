@@ -1267,7 +1267,8 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
       setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4i32, Custom);
       setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4f32, Custom);
       // Test data class instructions store results in CR bits.
-      if (Subtarget.useCRBits()) {
+      // Only available on 64-bit PPC; 32-bit PPC doesn't support these instructions.
+      if (Subtarget.useCRBits() && Subtarget.isPPC64()) {
         setOperationAction(ISD::IS_FPCLASS, MVT::f128, Custom);
         setOperationAction(ISD::IS_FPCLASS, MVT::ppcf128, Custom);
       }
